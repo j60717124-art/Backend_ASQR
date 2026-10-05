@@ -18,6 +18,7 @@ RUN apt-get update && apt-get install -y \
         pdo_mysql \
         zip \
         gd \
+        mbstring \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
