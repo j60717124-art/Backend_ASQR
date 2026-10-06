@@ -36,8 +36,8 @@ define('LOGIN_BLOQUEO_MINUTOS', 15);
 // Datos del servidor SMTP usado para enviar el PIN de recuperación de contraseña.
 define('SMTP_HOST', 'smtp.gmail.com');
 define('SMTP_PORT', 587);
-define('SMTP_USER', 'tu_correo@gmail.com');
-define('SMTP_PASS', 'tu_contrasena_de_aplicacion');
-define('SMTP_FROM_EMAIL', 'tu_correo@gmail.com');
+define('SMTP_USER', 'j60717124@gmail.com');
+define('SMTP_PASS', 'vtdz fsrt wgwo rngb');
+define('SMTP_FROM_EMAIL', 'j60717124@gmail.com');
 define('SMTP_FROM_NOMBRE', 'Sistema de Asistencia QR');
 define('SMTP_HABILITADO', true);
