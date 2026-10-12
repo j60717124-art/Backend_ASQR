@@ -557,17 +557,79 @@ function enviarCorreo(string $destinatario, string $asunto, string $cuerpoHtml, 
 function enviarCorreoPinRecuperacion(string $destinatario, string $pin, int $minutosExpiracion): bool
 {
   $asunto = 'Código de recuperación de contraseña - Sistema de Asistencia QR';
-  $cuerpoHtml = "
-    <div style='font-family: Arial, sans-serif; max-width: 480px; margin: auto;'>
-      <h2 style='color:#1749ff;'>Recuperación de contraseña</h2>
-      <p>Recibimos una solicitud para restablecer tu contraseña.</p>
-      <p>Tu código de verificación es:</p>
-      <p style='font-size: 32px; font-weight: bold; letter-spacing: 6px; color:#07122b;'>$pin</p>
-      <p>Este código expira en <strong>$minutosExpiracion minutos</strong>.</p>
-      <p>Si tú no solicitaste este cambio, puedes ignorar este correo.</p>
-      <hr>
-      <p style='font-size:12px;color:#667f9e;'>Sistema de Asistencia QR</p>
-    </div>
-  ";
-  return enviarCorreo($destinatario, $asunto, $cuerpoHtml);
+  $pinSeguro = htmlspecialchars($pin, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+  $minutosSeguros = max(1, (int) $minutosExpiracion);
+
+  $cuerpoHtml = <<<HTML
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light">
+  <title>Recuperación de contraseña</title>
+</head>
+<body style="margin:0; padding:0; background-color:#f3f6fb; font-family:Arial, Helvetica, sans-serif; color:#17233c;">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; background-color:#f3f6fb;">
+    <tr>
+      <td align="center" style="padding:32px 12px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="width:100%; max-width:600px; background-color:#ffffff; border:1px solid #e0e8f2; border-radius:18px; overflow:hidden;">
+          <tr>
+            <td style="padding:28px 32px 22px; border-bottom:1px solid #e7edf5;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                <tr>
+                  <td width="64" valign="middle">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="56" height="56" style="width:56px; height:56px; background-color:#1768ed; border-radius:14px;">
+                      <tr><td align="center" valign="middle" style="color:#ffffff; font-size:23px; font-weight:bold;">A</td></tr>
+                    </table>
+                  </td>
+                  <td valign="middle" style="padding-left:12px;">
+                    <div style="font-size:19px; line-height:26px; font-weight:bold; color:#17233c;">Sistema Académico</div>
+                    <div style="font-size:14px; line-height:21px; color:#526581;">Sistema de Asistencia QR</div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:30px 32px 34px;">
+              <div style="display:inline-block; padding:8px 13px; background-color:#e1f5f8; border-radius:9px; color:#009bb8; font-size:11px; line-height:15px; font-weight:bold; letter-spacing:2px;">SEGURIDAD DE TU CUENTA</div>
+              <h1 style="margin:20px 0 12px; color:#111d36; font-size:29px; line-height:36px; font-weight:700;">Recuperación de contraseña</h1>
+              <p style="margin:0 0 14px; color:#405371; font-size:16px; line-height:25px;">Recibimos una solicitud para restablecer la contraseña de tu cuenta.</p>
+              <p style="margin:0 0 20px; color:#405371; font-size:15px; line-height:24px;">Introduce este código de verificación en la pantalla de recuperación:</p>
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; max-width:480px;">
+                <tr>
+                  <td align="center" style="padding:18px 8px; background-color:#f3f8ff; border:1px solid #bfd5ff; border-radius:12px; color:#1768ed; font-size:39px; line-height:48px; font-weight:bold; letter-spacing:9px;">$pinSeguro</td>
+                </tr>
+              </table>
+              <p style="margin:17px 0 0; color:#405371; font-size:14px; line-height:22px;">Este código vence en <strong style="color:#17233c;">$minutosSeguros minutos</strong>.</p>
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-top:26px;">
+                <tr><td style="border-top:1px solid #e2eaf5; font-size:1px; line-height:1px;">&nbsp;</td></tr>
+              </table>
+              <p style="margin:20px 0 0; color:#405371; font-size:14px; line-height:23px;">Si no solicitaste este cambio, ignora este correo. Tu contraseña seguirá siendo la misma.</p>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:20px 24px 24px; background-color:#fbfcfe; border-top:1px solid #e7edf5;">
+              <p style="margin:0 0 6px; color:#526581; font-size:13px; line-height:20px;">&copy; 2026 Sistema de Asistencia QR</p>
+              <p style="margin:0; color:#71819a; font-size:12px; line-height:18px;">Mensaje automático. Por favor, no respondas a este correo.</p>
+            </td>
+          </tr>
+        </table>
+        <p style="margin:16px 8px 0; color:#8290a5; font-size:11px; line-height:17px; text-align:center;">Por seguridad, no compartas este código con otras personas.</p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+HTML;
+
+  $cuerpoTexto = "SISTEMA DE ASISTENCIA QR\n\n" .
+    "Recuperación de contraseña\n\n" .
+    "Tu código de verificación es: {$pin}\n" .
+    "Este código vence en {$minutosSeguros} minutos.\n\n" .
+    "Si no solicitaste este cambio, ignora este correo.\n" .
+    "Por seguridad, no compartas este código con otras personas.";
+
+  return enviarCorreo($destinatario, $asunto, $cuerpoHtml, $cuerpoTexto);
 }
