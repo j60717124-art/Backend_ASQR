@@ -1,6 +1,17 @@
+# Front controller: todo lo que no sea un archivo real va a index.php
 <IfModule mod_rewrite.c>
     RewriteEngine On
+    # Pasar la cabecera Authorization a PHP (Apache + php-fpm/CGI la descartan por defecto)
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteRule ^ index.php [QSA,L]
 </IfModule>
+
+# No exponer archivos ocultos (.env, .git, etc.)
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+Options -Indexes

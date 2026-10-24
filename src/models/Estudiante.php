@@ -15,7 +15,7 @@ class Estudiante
           FROM estudiante ORDER BY apellidos, nombres"
     );
     if (!$result) {
-        throw new Exception($this->db->error);
+      throw new Exception($this->db->error);
     }
     return $result->fetch_all(MYSQLI_ASSOC);
   }
@@ -42,11 +42,11 @@ class Estudiante
   private function ciExiste(string $ci, ?int $idExcluir = null): bool
   {
     if ($idExcluir === null) {
-        $stmt = $this->db->prepare("SELECT idestudiante FROM estudiante WHERE ci = ? LIMIT 1");
-        $stmt->bind_param("s", $ci);
+      $stmt = $this->db->prepare("SELECT idestudiante FROM estudiante WHERE ci = ? LIMIT 1");
+      $stmt->bind_param("s", $ci);
     } else {
-        $stmt = $this->db->prepare("SELECT idestudiante FROM estudiante WHERE ci = ? AND idestudiante != ? LIMIT 1");
-        $stmt->bind_param("si", $ci, $idExcluir);
+      $stmt = $this->db->prepare("SELECT idestudiante FROM estudiante WHERE ci = ? AND idestudiante != ? LIMIT 1");
+      $stmt->bind_param("si", $ci, $idExcluir);
     }
     $stmt->execute();
     return $stmt->get_result()->num_rows > 0;

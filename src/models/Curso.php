@@ -12,7 +12,7 @@ class Curso
   {
     $sql = "
       SELECT c.idcurso, c.nombre, c.colegio_idcolegio, c.nivel_idnivel,
-              col.nombre AS colegio_nombre, n.nivel AS nivel_nombre
+            col.nombre AS colegio_nombre, n.nivel AS nivel_nombre
       FROM curso c
       INNER JOIN colegio col ON col.idcolegio = c.colegio_idcolegio
       INNER JOIN nivel n ON n.idnivel = c.nivel_idnivel

@@ -10,12 +10,11 @@ class Cuenta
   }
 
   // CRUD BÁSICO
-
   public function getAll(): array
   {
     $sql = "
       SELECT c.idcuenta, c.n_usuario, c.correo, c.estado, c.fecha_de_agregacion,
-              c.rol_idrol, r.nombre_rol AS rol_nombre
+            c.rol_idrol, r.nombre_rol AS rol_nombre
       FROM cuenta c
       INNER JOIN rol r ON r.idrol = c.rol_idrol
       ORDER BY c.idcuenta DESC
@@ -31,7 +30,7 @@ class Cuenta
   {
     $sql = "
       SELECT c.idcuenta, c.n_usuario, c.correo, c.estado, c.fecha_de_agregacion,
-              c.rol_idrol, r.nombre_rol AS rol_nombre
+            c.rol_idrol, r.nombre_rol AS rol_nombre
       FROM cuenta c
       INNER JOIN rol r ON r.idrol = c.rol_idrol
       WHERE c.idcuenta = ?
@@ -77,7 +76,6 @@ class Cuenta
     return $stmt->get_result()->num_rows > 0;
   }
 
-  // Crea una nueva cuenta
   public function create(array $data): int
   {
     $usuario = validarNombreUsuario($data['n_usuario'] ?? '');
@@ -96,7 +94,6 @@ class Cuenta
       throw new Exception("El rol seleccionado no existe.");
     }
 
-    // Nunca se guarda la contraseña en texto plano
     $claveHash = password_hash($clave, PASSWORD_DEFAULT);
 
     $stmt = $this->db->prepare(
@@ -189,19 +186,13 @@ class Cuenta
 
   // LOGIN Y SEGURIDAD
 
-  /**
-   * Verifica credenciales de inicio de sesión.
-   * Aplica bloqueo temporal tras varios intentos fallidos (LOGIN_INTENTOS_MAXIMOS / LOGIN_BLOQUEO_MINUTOS).
-   * Devuelve los datos de la cuenta si son correctos.
-   * Lanza Exception con un mensaje apto para mostrar al usuario en cualquier otro caso (credenciales inválidas, cuenta inactiva o bloqueada).
-   */
   public function iniciarSesion(string $usuarioOCorreo, string $clave): array
   {
     $usuarioOCorreo = limpiarTexto($usuarioOCorreo);
 
     $sql = "
       SELECT c.idcuenta, c.n_usuario, c.correo, c.clave, c.estado, c.rol_idrol,
-              c.intentos_fallidos, c.bloqueado_hasta, r.nombre_rol
+            c.intentos_fallidos, c.bloqueado_hasta, r.nombre_rol
       FROM cuenta c
       INNER JOIN rol r ON r.idrol = c.rol_idrol
       WHERE (c.n_usuario = ? OR c.correo = ?)
@@ -213,7 +204,8 @@ class Cuenta
     $fila = $stmt->get_result()->fetch_assoc();
 
     if (!$fila) {
-      // Mensaje genérico: no revelamos si el usuario existe o no
+      // Se gasta el mismo tiempo que con una cuenta real para no revelar por latencia si el usuario existe.
+      password_verify($clave, '$2y$10$mJlk5NYgePsqMJkMOR/dGusOOF7yOiAdjYvVjHUSSuVlFK0pJ1Qky');
       throw new Exception("Usuario/correo o contraseña incorrectos.");
     }
 
@@ -221,7 +213,6 @@ class Cuenta
       throw new Exception("Esta cuenta está inactiva. Contacta a Dirección.");
     }
 
-    // ¿La cuenta está bloqueada todavía?
     if (!empty($fila['bloqueado_hasta']) && strtotime($fila['bloqueado_hasta']) > time()) {
       $minutosRestantes = (int) ceil((strtotime($fila['bloqueado_hasta']) - time()) / 60);
       throw new Exception("Cuenta bloqueada temporalmente por varios intentos fallidos. Intenta de nuevo en $minutosRestantes minuto(s).");
@@ -234,7 +225,6 @@ class Cuenta
       throw new Exception("Usuario/correo o contraseña incorrectos.");
     }
 
-    // Login correcto: reiniciar contador de intentos fallidos
     $this->reiniciarIntentosFallidos((int) $fila['idcuenta']);
 
     unset($fila['clave'], $fila['intentos_fallidos'], $fila['bloqueado_hasta']);
@@ -246,7 +236,7 @@ class Cuenta
     $intentos = $intentosActuales + 1;
 
     if ($intentos >= LOGIN_INTENTOS_MAXIMOS) {
-      $bloqueadoHasta = date('Y-m-d H:i:s', strtotime('+' . LOGIN_BLOQUEO_MINUTOS . ' minutes'));
+      $bloqueadoHasta = date('Y-m-d H:i:s', strtotime(getFechaHoraBolivia() . ' +' . LOGIN_BLOQUEO_MINUTOS . ' minutes'));
       $stmt = $this->db->prepare("UPDATE cuenta SET intentos_fallidos = ?, bloqueado_hasta = ? WHERE idcuenta = ?");
       $stmt->bind_param("isi", $intentos, $bloqueadoHasta, $idcuenta);
     } else {
@@ -263,27 +253,31 @@ class Cuenta
       $stmt->execute();
   }
 
-  // RECUPERACIÓN DE CONTRASEÑA (PIN por correo, expira en 5 minutos)
-
-  /**
-   * Genera un PIN de 6 dígitos, lo guarda con expiración de PIN_RECUPERACION_MINUTOS (5 min) y lo envía por correo. Por seguridad, siempre responde con éxito aunque el correo no exista.
-   */
+  // RECUPERACIÓN DE CONTRASEÑA
   public function solicitarPinRecuperacion(string $correo): void
   {
     $correo = validarCorreo($correo, true);
-
     $stmt = $this->db->prepare("SELECT idcuenta FROM cuenta WHERE correo = ? AND estado = 'Activo' LIMIT 1");
     $stmt->bind_param("s", $correo);
     $stmt->execute();
     $fila = $stmt->get_result()->fetch_assoc();
 
-    if (!$fila) {
-      // No revelamos si el correo existe o no: simplemente no se envía nada.
-      return;
+    if (!$fila) return;
+
+    // Anti-abuso: no se emite otro PIN si el anterior se envió hace menos de 1 minuto (evita bombardear el correo).
+    $stmtPrev = $this->db->prepare("SELECT pin_expiracion FROM cuenta WHERE idcuenta = ?");
+    $stmtPrev->bind_param("i", $fila['idcuenta']);
+    $stmtPrev->execute();
+    $previo = $stmtPrev->get_result()->fetch_assoc();
+    if (!empty($previo['pin_expiracion'])) {
+      $enviadoHace = (PIN_RECUPERACION_MINUTOS * 60) - (strtotime($previo['pin_expiracion']) - time());
+      if ($enviadoHace >= 0 && $enviadoHace < 60) {
+        return;
+      }
     }
 
     $pin = generarPin(6);
-    $expiracion = date('Y-m-d H:i:s', strtotime('+' . PIN_RECUPERACION_MINUTOS . ' minutes'));
+    $expiracion = date('Y-m-d H:i:s', strtotime(getFechaHoraBolivia() . ' +' . PIN_RECUPERACION_MINUTOS . ' minutes'));
 
     $upd = $this->db->prepare("UPDATE cuenta SET pin_recuperacion = ?, pin_expiracion = ? WHERE idcuenta = ?");
     $upd->bind_param("ssi", $pin, $expiracion, $fila['idcuenta']);
@@ -293,41 +287,52 @@ class Cuenta
 
     $enviado = enviarCorreoPinRecuperacion($correo, $pin, PIN_RECUPERACION_MINUTOS);
     if (!$enviado) {
-      // El PIN ya quedó guardado; informamos igual para no bloquear al usuario,
-      // pero dejamos constancia en el log del servidor.
       error_log("⚠️ No se pudo enviar el correo de recuperación a $correo");
     }
   }
 
-  /**
-   * Verifica el PIN (vigente dentro de los 5 minutos) y cambia la contraseña.
-   */
+  // Verifica el PIN y cambia la contraseña.
+  // El PIN solo tiene 6 dígitos, así que los intentos erróneos cuentan igual que en el login:
+  // tras LOGIN_INTENTOS_MAXIMOS fallos se bloquea la cuenta y el PIN se invalida (no se puede adivinar por fuerza bruta).
   public function verificarPinYCambiarClave(string $correo, string $pin, string $nuevaClave): void
   {
     $correo = validarCorreo($correo, true);
     $pin = validarPin($pin);
     $nuevaClave = validarClave($nuevaClave);
+    $mensajeGenerico = "El código de verificación es incorrecto o ya expiró. Solicita uno nuevo.";
 
-    $ahora = date('Y-m-d H:i:s');
-
-    $sql = "
-      SELECT idcuenta FROM cuenta
-      WHERE correo = ? AND pin_recuperacion = ? AND pin_expiracion IS NOT NULL AND pin_expiracion > ?
-      LIMIT 1
-    ";
-    $stmt = $this->db->prepare($sql);
-    $stmt->bind_param("sss", $correo, $pin, $ahora);
+    $stmt = $this->db->prepare(
+      "SELECT idcuenta, pin_recuperacion, pin_expiracion, intentos_fallidos, bloqueado_hasta
+        FROM cuenta WHERE correo = ? AND estado = 'Activo' LIMIT 1"
+    );
+    $stmt->bind_param("s", $correo);
     $stmt->execute();
     $fila = $stmt->get_result()->fetch_assoc();
 
-    if (!$fila) {
-      throw new Exception("El código de verificación es incorrecto o ya expiró. Solicita uno nuevo.");
+    if (!$fila || empty($fila['pin_recuperacion'])) {
+      throw new Exception($mensajeGenerico);
+    }
+
+    if (!empty($fila['bloqueado_hasta']) && strtotime($fila['bloqueado_hasta']) > time()) {
+      $minutos = (int) ceil((strtotime($fila['bloqueado_hasta']) - time()) / 60);
+      throw new Exception("Demasiados intentos. Intenta de nuevo en $minutos minuto(s).");
     }
 
     $idcuenta = (int) $fila['idcuenta'];
-    $hash = password_hash($nuevaClave, PASSWORD_DEFAULT);
+    $vigente = !empty($fila['pin_expiracion']) && strtotime($fila['pin_expiracion']) > time();
+    $coincide = hash_equals((string) $fila['pin_recuperacion'], $pin);
 
-    // Cambia la clave, limpia el PIN (no se puede reusar) y el bloqueo/intentos
+    if (!$vigente || !$coincide) {
+      $this->registrarIntentoFallido($idcuenta, (int) $fila['intentos_fallidos']);
+      if (((int) $fila['intentos_fallidos'] + 1) >= LOGIN_INTENTOS_MAXIMOS) {
+        $inv = $this->db->prepare("UPDATE cuenta SET pin_recuperacion = NULL, pin_expiracion = NULL WHERE idcuenta = ?");
+        $inv->bind_param("i", $idcuenta);
+        $inv->execute();
+      }
+      throw new Exception($mensajeGenerico);
+    }
+
+    $hash = password_hash($nuevaClave, PASSWORD_DEFAULT);
     $upd = $this->db->prepare("
       UPDATE cuenta
       SET clave = ?, pin_recuperacion = NULL, pin_expiracion = NULL,

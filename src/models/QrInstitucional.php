@@ -1,5 +1,4 @@
 <?php
-
 class QrInstitucional
 {
   private mysqli $db;
@@ -20,9 +19,9 @@ class QrInstitucional
     return $stmt->get_result()->fetch_assoc() ?: null;
   }
 
-  // Devuelve el QR vigente actual (no expirado y no usado), o null si no hay ninguno.
   public function getVigente(): ?array
   {
+    // Usar la zona horaria de Bolivia para la comparación
     $ahora = getFechaHoraBolivia();
     $stmt = $this->db->prepare(
       "SELECT idqr_institucional, codigo, firma, fecha_emision, fecha_expiracion, usado
@@ -53,7 +52,7 @@ class QrInstitucional
       $codigo = generarCodigoQrUnico();
     } while ($this->getPorCodigo($codigo) !== null);
 
-    $fechaExpiracion = date('Y-m-d H:i:s', strtotime('+' . $segundos . ' seconds'));
+    $fechaExpiracion = date('Y-m-d H:i:s', strtotime(getFechaHoraBolivia() . ' +' . $segundos . ' seconds'));
     $firma = generarFirmaQR($codigo, $fechaExpiracion);
 
     $stmt = $this->db->prepare(
@@ -73,7 +72,6 @@ class QrInstitucional
     ];
   }
 
-  // validador de QR institucional para uso en el sistema, verifica que el código exista, que la firma sea válida, que no haya sido usado y que no haya expirado.
   public function validarParaUso(string $codigo, string $firma): array
   {
     $qr = $this->getPorCodigo($codigo);
@@ -82,24 +80,28 @@ class QrInstitucional
     }
 
     if (!verificarFirmaQR($codigo, $qr['fecha_expiracion'], $firma)) {
-      throw new Exception("El código QR no es válido.");
+      throw new Exception("El código QR no es válido (firma incorrecta).");
     }
 
     if ((int) $qr['usado'] === 1) {
       throw new Exception("Este código QR ya fue utilizado. Escanea el código actual en pantalla.");
     }
 
-    if (strtotime($qr['fecha_expiracion']) < time()) {
+    $ahora = getFechaHoraBolivia();
+    if (strtotime($qr['fecha_expiracion']) < strtotime($ahora)) {
       throw new Exception("Este código QR ya expiró. Escanea el código actual en pantalla.");
     }
 
     return $qr;
   }
 
-  public function marcarComoUsado(int $idQrInstitucional): void
+  // Consume el QR de forma atómica: solo UNA petición puede pasar de usado=0 a usado=1.
+  // Devuelve false si otro docente lo usó en el mismo instante (evita que dos escaneos simultáneos lo reutilicen).
+  public function marcarComoUsado(int $idQrInstitucional): bool
   {
-    $stmt = $this->db->prepare("UPDATE qr_institucional SET usado = 1 WHERE idqr_institucional = ?");
+    $stmt = $this->db->prepare("UPDATE qr_institucional SET usado = 1 WHERE idqr_institucional = ? AND usado = 0");
     $stmt->bind_param("i", $idQrInstitucional);
     $stmt->execute();
+    return $stmt->affected_rows === 1;
   }
 }

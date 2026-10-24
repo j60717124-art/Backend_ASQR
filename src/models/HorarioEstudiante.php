@@ -27,7 +27,6 @@ class HorarioEstudiante
     return $stmt->get_result()->num_rows > 0;
   }
 
-  // Lista de estudiantes inscritos en un horario (para pasar lista / ver el curso)
   public function getPorHorario(int $idHorario): array
   {
     $stmt = $this->db->prepare(
@@ -43,7 +42,6 @@ class HorarioEstudiante
     return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
   }
 
-  // Horarios en los que está inscrito un estudiante
   public function getPorEstudiante(int $idEstudiante): array
   {
     $stmt = $this->db->prepare(
@@ -71,6 +69,34 @@ class HorarioEstudiante
     return $stmt->get_result()->fetch_assoc() ?: null;
   }
 
+  // Validar si el estudiante ya tiene una clase que se cruce en ese mismo día y hora
+  private function estudianteTieneCruce(int $idEstudiante, int $idHorarioNuevo): bool
+  {
+    // Obtener los datos del nuevo horario
+    $nuevoHorario = (new Horario())->getById($idHorarioNuevo);
+    if (!$nuevoHorario) return false;
+
+    $dia = $nuevoHorario['dia'];
+    $inicio = $nuevoHorario['hora_inicio'];
+    $fin = $nuevoHorario['hora_fin'];
+
+    // Buscar si el estudiante ya tiene otro horario que se solape
+    $sql = "
+      SELECT he.idhorario_estudiante
+      FROM horario_estudiante he
+      INNER JOIN horario h ON h.idhorario = he.horario_idhorario
+      WHERE he.estudiante_idestudiante = ?
+        AND h.dia = ?
+        AND h.hora_inicio < ?
+        AND h.hora_fin > ?
+      LIMIT 1
+    ";
+    $stmt = $this->db->prepare($sql);
+    $stmt->bind_param("isss", $idEstudiante, $dia, $fin, $inicio);
+    $stmt->execute();
+    return $stmt->get_result()->num_rows > 0;
+  }
+
   public function inscribir(array $data): int
   {
     $horarioId = validarIdPositivo($data['horario_idhorario'] ?? null, 'El horario');
@@ -84,6 +110,11 @@ class HorarioEstudiante
     }
     if ($this->getPorHorarioYEstudiante($horarioId, $estudianteId)) {
       throw new Exception("El estudiante ya está inscrito en ese horario.");
+    }
+
+    // Evitar que un alumno esté en dos clases a la vez
+    if ($this->estudianteTieneCruce($estudianteId, $horarioId)) {
+      throw new Exception("El estudiante ya tiene otra clase que se cruza en ese horario.");
     }
 
     $stmt = $this->db->prepare(

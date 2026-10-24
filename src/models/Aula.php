@@ -107,7 +107,7 @@ class Aula
     $stmt = $this->db->prepare("DELETE FROM aula WHERE idaula = ?");
     $stmt->bind_param("i", $id);
     if (!$stmt->execute()) {
-      throw new Exception("No se puede eliminar: hay horarios asociados a esta aula.");
+      throw new Exception("No se puede eliminar el aula porque tiene horarios asociados.");
     }
     return true;
   }

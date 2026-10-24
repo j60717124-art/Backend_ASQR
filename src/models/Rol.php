@@ -1,5 +1,4 @@
 <?php
-// Catálogo de roles (Direccion, Secretaria, Docente, ...)
 class Rol
 {
   private mysqli $db;

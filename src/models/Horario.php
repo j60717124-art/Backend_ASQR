@@ -12,9 +12,9 @@ class Horario
   {
     $sql = "
       SELECT h.idhorario, h.dia, h.hora_inicio, h.hora_fin,
-              h.docente_iddocente, h.materia_idmateria, h.aula_idaula,
-              CONCAT(d.nombres, ' ', d.apellidos) AS docente_nombre,
-              m.nombre_materia, a.nombre AS aula_nombre
+            h.docente_iddocente, h.materia_idmateria, h.aula_idaula,
+            CONCAT(d.nombres, ' ', d.apellidos) AS docente_nombre,
+            m.nombre_materia, a.nombre AS aula_nombre
       FROM horario h
       INNER JOIN docente d ON d.iddocente = h.docente_iddocente
       INNER JOIN materia m ON m.idmateria = h.materia_idmateria
@@ -43,6 +43,15 @@ class Horario
   {
     $stmt = $this->db->prepare("SELECT idhorario FROM horario WHERE idhorario = ? LIMIT 1");
     $stmt->bind_param("i", $id);
+    $stmt->execute();
+    return $stmt->get_result()->num_rows > 0;
+  }
+
+  // ¿Esta clase la dicta este docente? (autorización: un docente solo opera sobre sus propias clases)
+  public function perteneceADocente(int $idHorario, int $idDocente): bool
+  {
+    $stmt = $this->db->prepare("SELECT idhorario FROM horario WHERE idhorario = ? AND docente_iddocente = ? LIMIT 1");
+    $stmt->bind_param("ii", $idHorario, $idDocente);
     $stmt->execute();
     return $stmt->get_result()->num_rows > 0;
   }

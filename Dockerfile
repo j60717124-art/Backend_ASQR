@@ -10,7 +10,6 @@ RUN apt-get update && apt-get install -y \
     libpng-dev \
     libjpeg62-turbo-dev \
     libfreetype6-dev \
-    libonig-dev \
     default-mysql-client \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install \
@@ -19,7 +18,6 @@ RUN apt-get update && apt-get install -y \
         pdo_mysql \
         zip \
         gd \
-        mbstring \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 

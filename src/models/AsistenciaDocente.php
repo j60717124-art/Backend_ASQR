@@ -1,7 +1,4 @@
 <?php
-// Registro de asistencia del docente: escanea el QR dinámico de Dirección yse valida
-// (a) que el QR sea auténtico, esté vigente y no se haya usado antes,
-// (b) que sus coordenadas GPS estén dentro del radio de la geocerca.
 class AsistenciaDocente
 {
   private mysqli $db;
@@ -26,8 +23,8 @@ class AsistenciaDocente
   {
     $sql = "
       SELECT ad.idasistencia_docente, ad.fecha, ad.hora, ad.latitud, ad.longitud,
-              ad.resultado, ad.motivo_rechazo, ad.docente_iddocente,
-              CONCAT(d.nombres, ' ', d.apellidos) AS docente_nombre
+            ad.resultado, ad.motivo_rechazo, ad.docente_iddocente,
+            CONCAT(d.nombres, ' ', d.apellidos) AS docente_nombre
       FROM asistencia_docente ad
       INNER JOIN docente d ON d.iddocente = ad.docente_iddocente
     ";
@@ -56,6 +53,16 @@ class AsistenciaDocente
     }
     $stmt->execute();
     return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+  }
+
+  public function eliminar(int $id): void
+  {
+    $stmt = $this->db->prepare("DELETE FROM asistencia_docente WHERE idasistencia_docente = ?");
+    $stmt->bind_param("i", $id);
+    $stmt->execute();
+    if ($stmt->affected_rows === 0) {
+      throw new Exception("El registro de asistencia no existe.");
+    }
   }
 
   private function yaRegistroHoyAceptado(int $idDocente, string $fecha): bool
@@ -113,8 +120,11 @@ class AsistenciaDocente
         $motivo = 'Estás a ' . round($distancia) . ' m del punto permitido (máximo ' . $config['radio_metros'] . ' m). Acércate e inténtalo de nuevo.';
       }
 
-      // El código se consume en cualquier caso (aceptado o rechazado por distancia) para impedir reintentos con el mismo QR fotografiado.
-      $qrInstitucional->marcarComoUsado((int) $qr['idqr_institucional']);
+      // El QR se consume solo si la asistencia es válida y de forma atómica: si otro docente lo acaba de usar, este intento se rechaza.
+      if ($resultado === 'Aceptado' && !$qrInstitucional->marcarComoUsado((int) $qr['idqr_institucional'])) {
+        $resultado = 'Rechazado';
+        $motivo = 'Este código QR ya fue utilizado. Escanea el código actual en pantalla.';
+      }
     }
 
     $stmt = $this->db->prepare(

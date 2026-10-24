@@ -1,5 +1,4 @@
 <?php
-// QR fijo impreso en el carnet físico del estudiante.
 class QrEstudiante
 {
   private mysqli $db;
@@ -42,9 +41,10 @@ class QrEstudiante
     $stmt->execute();
     return $stmt->get_result()->fetch_assoc() ?: null;
   }
-// Genera un QR fijo nuevo para el estudiante e invalida cualquier QR vigente anterior (por ejemplo, al emitir un duplicado por pérdida de carnet).
+
   public function generarNuevo(int $idEstudiante): array
   {
+    // Advertir si se genera duplicado cuando ya existe uno vigente
     $anterior = $this->getVigentePorEstudiante($idEstudiante);
     if ($anterior) {
       $upd = $this->db->prepare("UPDATE qr_estudiante SET vigente = 0 WHERE idqr_estudiante = ?");
@@ -52,7 +52,6 @@ class QrEstudiante
       $upd->execute();
     }
 
-    // Intentamos generar un código único (muy improbable que choque, pero validamos igual)
     do {
       $codigo = generarCodigoQrUnico();
     } while ($this->getPorCodigo($codigo) !== null);
@@ -69,12 +68,16 @@ class QrEstudiante
       'idqr_estudiante' => $this->db->insert_id,
       'codigo' => $codigo,
       'estudiante_idestudiante' => $idEstudiante,
+      'qr_anterior_invalidado' => $anterior ? $anterior['codigo'] : null,
     ];
   }
 
-  // Emite un duplicado (alias explícito de generarNuevo, pensado para Secretaría/Dirección)
   public function emitirDuplicado(int $idEstudiante): array
   {
+    // Aseguramos que el estudiante exista antes de duplicar
+    if (!(new Estudiante())->existeId($idEstudiante)) {
+      throw new Exception("El estudiante no existe.");
+    }
     return $this->generarNuevo($idEstudiante);
   }
 }
