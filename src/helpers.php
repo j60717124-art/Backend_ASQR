@@ -159,6 +159,20 @@ function validarTextoObligatorio(mixed $valor, string $campo, int $min = 2, int 
 
   return $valor;
 }
+function validarTextoOpcional(mixed $valor, string $campo, int $max = 255): ?string
+{
+  $valor = limpiarTexto($valor);
+
+  if ($valor === '') {
+    return null;
+  }
+
+  if (mb_strlen($valor) > $max) {
+    throw new Exception("$campo no puede superar los $max caracteres.");
+  }
+
+  return $valor;
+}
 
 function validarNombreUsuario(mixed $usuario): string
 {
