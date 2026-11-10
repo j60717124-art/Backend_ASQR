@@ -75,6 +75,6 @@ define('SMTP_HOST', (string) env('SMTP_HOST', 'smtp.gmail.com'));
 define('SMTP_PORT', (int) env('SMTP_PORT', 587));
 define('SMTP_USER', (string) env('SMTP_USER', 'j60717124@gmail.com'));
 define('SMTP_PASS', (string) env('SMTP_PASS', 'vtdz fsrt wgwo rngb'));
-define('SMTP_FROM_EMAIL', (string) env('SMTP_FROM_EMAIL', (string) env('SMTP_USER', 'no-reply@localhost')));
+define('SMTP_FROM_EMAIL', (string) env('SMTP_FROM_EMAIL', (string) env('SMTP_USER', 'j60717124@gmail.com')));
 define('SMTP_FROM_NOMBRE', (string) env('SMTP_FROM_NOMBRE', 'Sistema de Asistencia QR'));
 define('SMTP_HABILITADO', envBool('SMTP_HABILITADO', SMTP_USER !== '' && SMTP_PASS !== ''));
