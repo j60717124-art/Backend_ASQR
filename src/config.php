@@ -58,7 +58,6 @@ define('APP_SECRET', (string) env('APP_SECRET', 'ad305e36898e233fe4a117170a064de
 
 // Orígenes del frontend permitidos por CORS (separados por coma). Ej: https://frontend-asqr.onrender.com
 define('FRONTEND_URL', (string) env('FRONTEND_URL', 'https://frontend-asqr.onrender.com'));
-
 define('SESION_DURACION_SEGUNDOS', (int) env('SESION_DURACION_SEGUNDOS', 8 * 60 * 60));
 define('PIN_RECUPERACION_MINUTOS', (int) env('PIN_RECUPERACION_MINUTOS', 5));
 define('LOGIN_INTENTOS_MAXIMOS', (int) env('LOGIN_INTENTOS_MAXIMOS', 3));
@@ -74,7 +73,7 @@ define('ASISTENCIA_VALIDAR_HORARIO', envBool('ASISTENCIA_VALIDAR_HORARIO', true)
 define('SMTP_HOST', (string) env('SMTP_HOST', 'smtp.gmail.com'));
 define('SMTP_PORT', (int) env('SMTP_PORT', 587));
 define('SMTP_USER', (string) env('SMTP_USER', 'j60717124@gmail.com'));
-define('SMTP_PASS', (string) env('SMTP_PASS', 'vtdz fsrt wgwo rngb'));
+define('SMTP_PASS', (string) env('SMTP_PASS', 'jntn dckj xjxh tokm'));
 define('SMTP_FROM_EMAIL', (string) env('SMTP_FROM_EMAIL', (string) env('SMTP_USER', 'j60717124@gmail.com')));
 define('SMTP_FROM_NOMBRE', (string) env('SMTP_FROM_NOMBRE', 'Sistema de Asistencia QR'));
 define('SMTP_HABILITADO', envBool('SMTP_HABILITADO', SMTP_USER !== '' && SMTP_PASS !== ''));
